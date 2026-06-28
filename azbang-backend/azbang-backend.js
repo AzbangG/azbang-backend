@@ -230,6 +230,38 @@ app.get('/api/games', async (_req, res) => {
 });
 
 /* ══════════════════════════════════════════════════
+   DELETE /api/servers?job_id=<job_id>
+   Called by Reporter.lua when LocalPlayer leaves.
+   Hard-deletes the specific server row immediately.
+══════════════════════════════════════════════════ */
+app.delete('/api/servers', requireSecret, async (req, res) => {
+  const job_id = (req.query.job_id || '').trim();
+  if (!job_id) return res.status(400).json({ error: 'job_id required' });
+
+  try {
+    const { data, error } = await supabase
+      .from('servers')
+      .delete()
+      .eq('job_id', job_id)
+      .select('id');
+
+    if (error) {
+      console.error('Server delete error:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+
+    const count = data?.length || 0;
+    if (count > 0) console.log(`[Delete] Removed server job_id=${job_id}`);
+    else           console.log(`[Delete] job_id=${job_id} not found (already gone)`);
+
+    return res.status(200).json({ deleted: count, job_id });
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/* ══════════════════════════════════════════════════
    POST /api/cleanup
    Manual trigger — cron job, UptimeRobot, Supabase Edge Function.
 ══════════════════════════════════════════════════ */
